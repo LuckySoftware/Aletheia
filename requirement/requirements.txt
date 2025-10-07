@@ -1,0 +1,12 @@
+# Requerimientos principales del proyecto
+psycopg2-binary
+python-dotenv
+pandas
+openpyxl
+xlrd
+
+# Herramientas de desarrollo (opcionales)
+pytest
+mypy
+black
+isort
