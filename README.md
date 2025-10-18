@@ -1,4 +1,6 @@
-Aletheia — Validador de datos para entornos industriales
+# Aletheia — Data Validator
+
+![project-6](https://github.com/user-attachments/assets/c2babb71-efa1-4e29-9fc5-ec199e9b4064)
 
 Resumen
 -------
