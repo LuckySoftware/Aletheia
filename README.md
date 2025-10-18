@@ -1,141 +1,194 @@
-> # *Aletheia, a data validator that will protect you from Dolos*
+Aletheia — Validador de datos para entornos industriales
 
-![Imagen del proyecto](https://github.com/user-attachments/assets/2a626e58-09f7-4cf3-9207-d5de3d67839d)
+Resumen
+-------
+Aletheia es una colección de scripts Python orientados a la validación, limpieza y preparación de datos instrumentales (CSV/Excel) para su posterior ingestión o análisis. Aplica reglas declarativas (desde JSON), gestiona exclusiones (via Google Sheets o archivos Excel), detecta y gestiona duplicados, y almacena resultados intermedios en PostgreSQL. Genera reportes en Excel con los errores y los datos validados.
 
-![Build Status](https://img.shields.io/badge/build-pipeline-yellow.svg)
-![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)
-![Version](https://img.shields.io/badge/version-0.1.0-orange.svg)
+Este README describe la estructura real del proyecto, las variables de entorno requeridas, el pipeline por pasos y las opciones de despliegue (Docker / Docker Compose).
 
-## Índice
-- [Descripción del Proyecto](#descripción-del-proyecto)
-- [Características Principales](#características-principales)
-- [Instalación](#instalación)
-- [Uso](#uso)
-- [Tecnologías Utilizadas](#tecnologías-utilizadas)
+Índice
+- Características
+- Requisitos
+- Instalación (entorno local)
+- Archivo `.env` (variables y ejemplos)
+- Pipeline (scripts en `src/core`)
+- Estructura del proyecto
+- Docker / docker-compose
+- Notas de operación y mantenimiento
+- Contacto y licencia
 
-## Descripción del Proyecto
-Aletheia es una Python Tool basada en el tipo Data Validator, es una utilidad en Python para validar y procesar archivos CSV/Excel con datos instrumentales. Su objetivo es detectar, marcar y exportar registros que incumplen reglas definidas (rangos, exclusiones, duplicados), facilitando la limpieza y preparación de datos para análisis o carga en bases de datos.
+Características
+---------------
+- Reglas declarativas: `src/settings/rules.json` se carga en la tabla `validation_rules` via `src/core/3_load_rules_from_json.py`.
+- Lectura de CSV: `src/core/4_load_csv.py` detecta las columnas de `raw_data` y carga solo filas limpias y numéricas.
+- Exclusiones: `src/core/2_load_exclusiones.py` extrae rangos desde Google Sheets y escribe en la tabla `excluded_data`.
+- Detección y gestión de duplicados: `src/core/5_handle_duplicates.py` mueve duplicados a `duplicated_data` y los elimina de `raw_data`.
+- Validación: `src/core/6_validate_data.py` (documentar reglas) aplica las reglas por columna y persiste errores en `validation_error_by_rules`.
+- Exportes: `src/core/8_export_to_excel.py` genera reportes en `data/output`.
 
-El proyecto automatiza el flujo de: carga de reglas desde JSON, lectura de CSV/Excel, aplicación de validaciones por columna, manejo de exclusiones y duplicados, almacenamiento temporal en PostgreSQL y exportación de reportes Excel con errores y registros validados.
+Requisitos
+----------
+- Python 3.10+
+- PostgreSQL (puede usarse el servicio definido en `docker-compose.yaml`)
+- pip
+- (Opcional) Docker y Docker Compose para despliegues o pruebas reproducibles
 
-## Características Principales
-- Validaciones por reglas: carga y aplicación de reglas definidas en `rules.json` (rangos, mensajes de error, activación).
-- Soporte de formatos: lectura de CSV y Excel (pandas + openpyxl/xlrd) y exportación de reportes en Excel.
-- Integración con PostgreSQL: scripts para crear la base de datos y almacenar resultados temporales (`1_create_database.py`).
-- Gestión de exclusiones y duplicados: herramientas para cargar exclusiones desde Excel y eliminar duplicados antes de la validación.
-- Flujo automatizado: scripts numerados (`1_...` a `8_...`) para montar pipelines reproducibles de procesamiento.
-
-## Lógica de sistema
-Solamente hay `9 inputs` hechos por el usuario. Dichos inputs se insertan al principio y nunca mas se vuelve a requerir esos inputs
-al usuario, ya que quedan en el archivo `.env` para poder consumir las veces que sean necesarias.
-- 1 :: `Nombre` para la base de datos
-- 2 :: `Usuario` de base de datos (superusuario)
-- 3 :: `Contraseña` para la base de datos
-- 4 :: `Puerto` de la base de datos
-- 5 :: `Cantidad de columnas por` `.csv` (para poder mapearlas posteriormente)
-- 6 :: `Directorio de los .csv (crudos)` para poder consumir los datos 
-- 7 :: `Directorio de reportes de ERROR` lugar de reportes para datos que violen reglas de `rules.json`
-- 8 :: `Directorio de reportes de VALIDACION` aquí la herramienta dejará los reportes con los datos filtrados y validados
-- 9 :: `Directorio de exclusiones` debe apuntar al directorio de exclusiones con archivos `.xlsx` que llena el jefe de planta 
-
-## Instalación
-Requisitos previos:
-- Python 3.10.x
-- PostgreSQL 17.x
-- Git
-
-## Árbol de directorios
-Árbol de directorios del proyecto
-
-```
-DataValidator/
-├─ README.md
-├─ rules.json                      # archivo de reglas (editable)
-├─ .env                            # archivo de credenciales (generado automaticamente)
-├─ requirements/
-│  └─ requirements.txt
-├─ src/
-│  ├─ 1_create_database.py         # creación de base de datos y tablas
-│  ├─ 2_load_exclusiones.py        # carga de exclusiones y potencia pico (extracción de .xlsx)
-│  ├─ 3_load_rules_from_json.py    # carga de reglas desde el archivo .json
-│  ├─ 4_load_csv.py                # carga de .csv crudos provenientes del SCADA
-│  ├─ 5_handle_duplicates.py       # eliminación de filas duplicadas en .csv
-│  ├─ 6_validate_data.py           # validación de reglas 
-│  ├─ 7_delete_exclusions.py       # eliminación de filsa con exclusiones en 0 
-│  └─ 8_export_to_excel.py         # exportacion a excel de errores y excel de datos validados
-└─ tool/
-  ├─ tool-inicio.bat               # herramienta con menú integrado para poder realizar la instalación
-  └─ tool.bat                      # herramienta para ejecución ciclica mediante cron o taskschd
-```
-
-
-1. Clona el repositorio:
-```bash
-git clone https://github.com/tu-usuario/aletheia.git
-```
-2. Entra en el directorio del proyecto:
-```bash
+Instalación (Windows - PowerShell)
+---------------------------------
+```powershell
+git clone <repositorio>
 cd aletheia
-```
-3. Crea y activa un entorno virtual (recomendado):
-```bash
 python -m venv .venv
-.\.venv\Scripts\activate
-```
-4. Instala las dependencias:
-```bash
-pip install -r requirements/requirements.txt
-```
-5. Configura las variables de entorno:
-- Crea un archivo `.env` en la raíz con las variables necesarias. Ejemplo (ya presente en el repositorio):
-
-6. Inicializa la base de datos ejecutando:
-```bash
-python src/1_create_database.py
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-7. Ejecuta el pipeline de ejemplo (por pasos):
-o puedes usar la herramienta automatica para ello en \tool
-```bash
-python src/3_load_rules_from_json.py
-python src/4_load_csv.py
-python src/5_handle_duplicates.py
-python src/6_validate_data.py
-python src/8_export_to_excel.py
+Archivo `.env` (valores clave)
+------------------------------
+Coloca un `.env` en la raíz del proyecto. Ejemplo mínimo con las variables usadas en los scripts:
+
+```dotenv
+# PostgreSQL
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=aletheia_db
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+# Esquema y pipeline
+NUM_COLUMNS=30      # Número de columnas de medida (col_1 .. col_N)
+P_MAX=1000          # Parámetro inicial de planta (se inserta en plant_parameters)
+
+# Carga de CSV
+CSV_DIRECTORY=./data/input
+CSV_SEPARATOR=;
+CSV_ENCODING=windows-1252
+
+# Exclusiones (Google Sheets)
+GOOGLE_SHEET_NAME=MiHojaDeExclusiones
+WORKSHEET_NAME=Sheet1
+GOOGLE_CREDENTIALS_FILE=credentials.json  # ruta relativa bajo /app (ej: src/settings/credentials.json)
+
+# Contenedor
+KEEP_ALIVE=false
+
 ```
 
+Notas sobre variables
+- `NUM_COLUMNS` es requerida por `src/core/1_create_database.py` para construir columnas `col_1..col_N`.
+- `P_MAX` se usa para insertar parámetros iniciales en la tabla `plant_parameters`.
+- `GOOGLE_CREDENTIALS_FILE` debe apuntar a un archivo JSON con credenciales de service account con acceso a la hoja.
 
-## Uso
-Flujos típicos:
+Pipeline (scripts y orden recomendable)
+-------------------------------------
+Los scripts están en `src/core/` y están numerados para ejecutar el pipeline por pasos. Ejecuta cada paso desde la raíz del proyecto (con `.env` presente) o dentro del contenedor.
 
-- Validación por carpetas: coloca tus CSVs en la ruta indicada por `CSV_DIRECTORY` en `.env` y ejecuta:
-```bash
-python src/4_load_csv.py
-python src/6_validate_data.py
+1) Crear esquema y tablas (ejecutar 1 vez):
+
+```powershell
+python src/core/1_create_database.py
 ```
 
-- Exportar resultados a Excel:
-```bash
-python src/8_export_to_excel.py
+2) Cargar exclusiones desde Google Sheets (opcional, cuando haya exclusiones que registrar):
+
+```powershell
+python src/core/2_load_exclusiones.py
 ```
 
-- Cargar reglas personalizadas:
-```bash
-# Edita `rules.json` y luego:
-python src/3_load_rules_from_json.py
+3) Cargar reglas desde JSON a la BD (cuando actualices `src/settings/rules.json`):
+
+```powershell
+python src/core/3_load_rules_from_json.py
 ```
 
-Los scripts están numerados para permitir ejecución paso a paso del pipeline. Cada script imprime logs básicos en consola y genera archivos Excel en los directorios configurados.
+4) Cargar CSVs (limpia e inserta en `raw_data`):
 
-## Tecnologías Utilizadas
-- Lenguaje: Python 3.10+
-- Librerías principales:
-  - pandas
-  - python-dotenv
-  - psycopg2-binary
-  - openpyxl, xlrd
-- Base de datos: PostgreSQL
-- Herramientas de desarrollo: pytest (tests opcionales), mypy, black, isort
+```powershell
+python src/core/4_load_csv.py
+```
 
-## Contacto
-- Autor: Luciano Moreira
+5) Detectar y mover duplicados:
+
+```powershell
+python src/core/5_handle_duplicates.py
+```
+
+6) Ejecutar validaciones por reglas (genera entradas en `validation_error_by_rules` y `validated_data`):
+
+```powershell
+python src/core/6_validate_data.py
+```
+
+7) Eliminar filas según reglas de exclusión (si procede):
+
+```powershell
+python src/core/7_delete_exclusions.py
+```
+
+8) Exportar reportes a Excel (errores y datos validados):
+
+```powershell
+python src/core/8_export_to_excel.py
+```
+
+Atajos y utilidades
+- `tool/tool-inicio.bat` y `tool/tool.bat` contienen menús / ejecuciones automatizadas para Windows.
+
+Estructura del proyecto (extracto)
+---------------------------------
+```
+aletheia/
+├─ README.md
+├─ requirements.txt
+├─ docker-compose.yaml
+├─ Dockerfile
+├─ .env (no versionado)
+├─ data/
+│  ├─ input/
+│  ├─ output/
+│  └─ backup/
+├─ scripts/
+│  └─ entrypoint.sh
+├─ src/
+│  ├─ core/
+│  │  ├─ 1_create_database.py
+│  │  ├─ 2_load_exclusiones.py
+│  │  ├─ 3_load_rules_from_json.py
+│  │  ├─ 4_load_csv.py
+│  │  ├─ 5_handle_duplicates.py
+│  │  ├─ 6_validate_data.py
+│  │  ├─ 7_delete_exclusions.py
+│  │  └─ 8_export_to_excel.py
+│  └─ settings/
+│     ├─ api_credentials.json
+│     └─ rules.json
+└─ tool/
+   ├─ tool-inicio.bat
+   └─ tool.bat
+```
+
+Docker y orquestación
+----------------------
+El repositorio incluye `Dockerfile` y `docker-compose.yaml` para pruebas y despliegue. Resumen:
+- `docker-compose.yaml` define dos servicios: `db` (Postgres) y `app` (construida desde `Dockerfile`).
+- `app` monta `./src` y `./scripts` en `/app` y usa un `entrypoint` (`/app/scripts/entrypoint.sh`) que espera a la DB y ejecuta `1_create_database.py`.
+
+Comandos básicos (PowerShell):
+```powershell
+docker-compose up --build -d
+docker-compose logs -f app
+docker-compose down
+```
+
+Notas operativas
+----------------
+- Asegúrate de tener `.env` con credenciales antes de ejecutar los scripts o el contenedor.
+- `src/core/4_load_csv.py` espera archivos CSV en `CSV_DIRECTORY` (configurable) y usa `;` y `windows-1252` por defecto.
+- `src/core/2_load_exclusiones.py` utiliza Google Sheets; configura `GOOGLE_CREDENTIALS_FILE` y permisos de la service account.
+- Los scripts registran mensajes por consola; revisa `data/output` para resultados y `data/backup` para respaldos.
+- No versionar `.env` ni credenciales.
+
+Problemas conocidos y supuestos
+-------------------------------
+- Muchos scripts usan rutas absolutas bajo `/app` asumiendo ejecución dentro de contenedor; en local ejecuta desde la raíz del proyecto y garantiza que `.env` exista.
+- El script `1_create_database.py` requiere `NUM_COLUMNS` y `P_MAX` en el entorno.
