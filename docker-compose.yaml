@@ -1,0 +1,147 @@
+# =================================================================================================
+# DOCKER COMPOSE - ARQUITECTURA DE SERVICIOS
+# -------------------------------------------------------------------------------------------------
+#
+# Descripción:
+#   Este archivo define y orquesta los contenedores que componen la aplicación.
+#   Actúa como el plano central que especifica cómo el servicio de la base de datos (PostgreSQL)
+#   y el servicio de la aplicación (Python) se construyen, se conectan y persisten sus datos.
+#
+# Comandos Esenciales:
+#   - Construir e iniciar en segundo plano: docker-compose up --build -d
+#   - Detener y eliminar los contenedores: docker-compose down
+#   - Monitorear logs de un servicio:      docker-compose logs -f app
+# =================================================================================================
+
+# --- Declaración de Servicios ---
+# La directiva 'services' es el punto de partida donde se definen todos los contenedores
+# que forman parte del proyecto. Cada clave bajo 'services' es un contenedor individual.
+services:
+
+  # -----------------------------------------------------------------------------------------------
+  # SERVICIO 1: BASE DE DATOS (POSTGRESQL)
+  # Responsabilidad: Almacenar y gestionar todos los datos persistentes de la aplicación.
+  # -----------------------------------------------------------------------------------------------
+  db:
+    # --- Imagen de Origen ---
+    # Especifica la plantilla para construir este contenedor. Usamos 'postgres:14-alpine' por ser
+    # una versión específica (14), ligera y con una base de seguridad robusta (Alpine Linux).
+    image: postgres:14-alpine
+
+    # --- Nombre del Contenedor ---
+    # Asigna un nombre de host estático y predecible. Facilita la referencia en redes y comandos.
+    container_name: canahuate_db_service
+
+    # --- Política de Reinicio ---
+    # 'unless-stopped' instruye a Docker para que reinicie automáticamente el contenedor si se cae,
+    # excepto si ha sido detenido manualmente. Esencial para garantizar la alta disponibilidad de la BD.
+    restart: unless-stopped
+
+    # --- Persistencia de Datos (Volumen Nombrado) ---
+    # Define cómo se almacenarán los datos de la base de datos para que no se pierdan.
+    volumes:
+      # Mapea un volumen gestionado por Docker llamado 'postgres_data' al directorio interno donde
+      # PostgreSQL escribe sus archivos. Esto desacopla el ciclo de vida de los datos del ciclo
+      # de vida del contenedor, garantizando que los datos sobrevivan a reinicios y reconstrucciones.
+      - postgres_data:/var/lib/postgresql/data
+
+    # --- Mapeo de Puertos ---
+    # Expone el puerto del contenedor a la máquina anfitriona (host).
+    ports:
+      # Redirige el puerto 5432 del host al puerto 5432 del contenedor. Esto permite que herramientas
+      # de gestión de bases de datos (como DBeaver, pgAdmin) se conecten desde el exterior.
+      - "5432:5432"
+
+    # --- Configuración Inicial del Entorno ---
+    # Estas variables son leídas por la imagen de PostgreSQL en su primer arranque para
+    # inicializar la base de datos con los parámetros especificados.
+    environment:
+      POSTGRES_DB: canahuate_db      # Nombre de la base de datos a crear.
+      POSTGRES_USER: postgres          # Nombre del superusuario.
+      POSTGRES_PASSWORD: postgres      # Contraseña para el superusuario.
+
+    # --- Verificación de Salud del Servicio ---
+    # Define un comando para que Docker verifique periódicamente si la base de datos está
+    # realmente lista para aceptar conexiones, no solo si el proceso se ha iniciado.
+    healthcheck:
+      # Comando que se ejecuta para el test. 'pg_isready' es una utilidad nativa de Postgres.
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # Frecuencia con la que se ejecuta la verificación.
+      interval: 5s
+      # Tiempo máximo de espera para que el comando devuelva una respuesta.
+      timeout: 5s
+      # Número de fallos consecutivos antes de marcar el contenedor como 'unhealthy'.
+      retries: 5
+
+  # -----------------------------------------------------------------------------------------------
+  # SERVICIO 2: APLICACIÓN (PYTHON)
+  # Responsabilidad: Contiene y ejecuta la lógica de negocio principal de la aplicación.
+  # -----------------------------------------------------------------------------------------------
+  app:
+    # --- Construcción de la Imagen ---
+    # En lugar de usar una imagen preexistente, le indica a Docker Compose que construya una
+    # imagen personalizada usando el 'Dockerfile' que se encuentra en el directorio actual ('.').
+    build: .
+
+    # --- Nombre del Contenedor ---
+    # Asigna un nombre estático para identificar fácilmente el contenedor de la aplicación.
+    container_name: canahuate_app_service
+
+    # --- Dependencias de Arranque ---
+    # Define el orden en que se deben iniciar los servicios.
+    depends_on:
+      db:
+        # Condición clave: El servicio 'app' no intentará iniciarse hasta que el 'healthcheck'
+        # del servicio 'db' devuelva un estado 'healthy'. Esto previene errores de conexión
+        # al inicio.
+        condition: service_healthy
+
+    # --- Usuario de Ejecución ---
+    # Sobrescribe el usuario definido en el Dockerfile. Se fuerza la ejecución como 'root'
+    # para evitar problemas de permisos de escritura en los volúmenes montados desde Windows,
+    # que a menudo presentan conflictos con usuarios no privilegiados dentro del contenedor.
+    user: root
+
+    # --- Persistencia y Sincronización de Código (Bind Mounts) ---
+    # Mapea directorios del host directamente al sistema de archivos del contenedor.
+    volumes:
+      # Sincroniza el código fuente. Cualquier cambio en './src' en tu máquina se refleja
+      # al instante dentro de '/app/src' en el contenedor, ideal para desarrollo en vivo.
+      - ./src:/app/src
+      # Sincroniza los scripts de la misma manera que el código fuente.
+      - ./scripts:/app/scripts
+
+      # --- [PORTAL DE DATOS DE ENTRADA] ---
+      # Mapea una ruta local específica del desarrollador a la carpeta de entrada de la aplicación.
+      # NOTA: Esta ruta es absoluta y específica de una máquina. Otros desarrolladores
+      # deberán ajustarla a su propia estructura de directorios.
+      - "C:/Users/lmoreira/Desktop/__desarrollo__/__en__desarrollo__/Project Aletheia/desarrollo aletheia/test/data:/app/data/input"
+
+      # --- [PORTAL DE DATOS DE SALIDA] ---
+      # Los archivos generados por la aplicación en '/app/data/output' (dentro del contenedor)
+      # aparecerán automáticamente en la carpeta './data/output' de tu proyecto en el host.
+      - ./data/output:/app/data/output
+
+      # --- [PORTAL DE RESPALDOS] ---
+      # Similar al portal de salida, pero para los archivos de backup.
+      - ./data/backup:/app/data/backup
+
+    # --- Carga de Variables de Entorno ---
+    # Adopta la mejor práctica de separar la configuración de la orquestación.
+    env_file:
+      # Instruye a Docker Compose para que cargue todas las variables de entorno
+      # definidas en el archivo '.env' ubicado en el directorio raíz del proyecto.
+      - .env
+
+# =================================================================================================
+# GESTIÓN DE VOLÚMENES NOMBRADOS
+# -------------------------------------------------------------------------------------------------
+# Esta sección declara explícitamente los volúmenes que son gestionados por Docker,
+# asegurando que su configuración y ciclo de vida sean controlados por el motor de Docker.
+# =================================================================================================
+volumes:
+  # --- Declaración del Volumen de la Base de Datos ---
+  # Define formalmente el volumen 'postgres_data'. Al declararlo aquí, podemos gestionarlo
+  # con comandos como 'docker volume ls' o 'docker volume rm', independientemente de si
+  # el contenedor 'db' está en ejecución o no.
+  postgres_data:
