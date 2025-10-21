@@ -126,6 +126,8 @@ services:
       # Similar al portal de salida, pero para los archivos de backup.
       - ./data/backup:/app/data/backup
 
+      - ./src/settings:/app/src/settings
+      
     # --- Carga de Variables de Entorno ---
     # Adopta la mejor práctica de separar la configuración de la orquestación.
     env_file:
