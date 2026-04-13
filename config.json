@@ -1,0 +1,36 @@
+{
+  "plantas": [
+    {
+      "nombre": "Planta 1",
+      "id": "planta1",
+      "sync_src": "C:\\ejemplo\\ruta\\a\\archivos\\planta_1",
+      "storage_dest": "C:\\ejemplo\\ruta\\a\\archivos\\planta_1",
+      "db_host": "host",
+      "db_port": "5432",
+      "db_name": "planta1_db",
+      "db_user": "user_db",
+      "db_password": "password",
+      "gs_sheet": "DATOS_PLANTA_1",
+      "emails": [
+        "ejemplo@empresa.dominio",
+        "ejemplo_2@empresa.dominio"
+      ]
+    },
+    {
+      "nombre": "planta 2",
+      "id": "planta2",
+      "sync_src": "C:\\ejemplo\\ruta\\a\\archivos\\planta_2",
+      "storage_dest": "C:\\ejemplo\\ruta\\a\\reportes\\planta_2",
+      "db_host": "host",
+      "db_port": "5432",
+      "db_name": "planta2_db",
+      "db_user": "user_db",
+      "db_password": "password",
+      "gs_sheet": "DATA_PLANTA_2",
+      "emails": [
+        "ejemplo@empresa.dominio",
+        "ejemplo_2@empresa.dominio"
+      ]
+    }
+  ]
+}

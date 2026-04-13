@@ -1,0 +1,23 @@
+[
+  {
+    "column_pattern": "irradiancia_de_panel",
+    "rule_type": "range",
+    "rule_config": { "min": 0, "max": 1281 },
+    "error_message": "Valor de irradiancia fuera de rango patrón [0, 1250]",
+    "is_active": true
+  },
+  {
+    "column_pattern": "temperatura_ambiente",
+    "rule_type": "range",
+    "rule_config": { "min": 5, "max": 55 },
+    "error_message": "Temperatura ambiente fuera de rango patrón [5, 55]",
+    "is_active": true
+  },
+  {
+    "column_pattern": "temperatura_de_modulo",
+    "rule_type": "range",
+    "rule_config": { "min": 5, "max": 105 },
+    "error_message": "Temperatura de panel fuera de rango patrón [5, 105]",
+    "is_active": true
+  }
+]
